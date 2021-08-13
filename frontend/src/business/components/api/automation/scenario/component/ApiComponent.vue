@@ -1,7 +1,6 @@
 <template>
   <div>
     <api-base-component
-      v-loading="loading"
       @copy="copyRow"
       @remove="remove"
       @active="active"
@@ -32,8 +31,11 @@
         </span>
       </template>
       <template v-slot:button>
-        <el-tooltip :content="$t('api_test.run')" placement="top">
-          <el-button :disabled="!request.enable" @click="run" icon="el-icon-video-play" style="padding: 5px" class="ms-btn" size="mini" circle/>
+        <el-tooltip :content="$t('api_test.run')" placement="top" v-if="!runLoading">
+          <el-button :disabled="!request.enable" @click="run" icon="el-icon-video-play" style="padding: 5px" class="ms-btn" size="mini" circle />
+        </el-tooltip>
+        <el-tooltip :content="$t('report.stop_btn')" placement="top" v-else>
+          <el-button :disabled="!request.enable" @click.once="stop" type="danger" icon="el-icon-close" style="padding: 5px" size="mini" circle />
         </el-tooltip>
       </template>
 
@@ -80,12 +82,12 @@
           <div v-for="(scenario,h) in request.result.scenarios" :key="h">
             <el-tabs v-model="request.activeName" closable class="ms-tabs">
               <el-tab-pane v-for="(item,i) in scenario.requestResults" :label="'循环'+(i+1)" :key="i" style="margin-bottom: 5px">
-                <api-response-component :currentProtocol="request.protocol" :apiActive="true" :result="item"/>
+                <api-response-component :currentProtocol="request.protocol" :apiActive="true" :result="item" v-loading="loading"/>
               </el-tab-pane>
             </el-tabs>
           </div>
         </div>
-        <div v-else-if="showXpackCompnent&&request.backEsbDataStruct != null">
+        <div v-else-if="showXpackCompnent&&request.backEsbDataStruct != null" >
           <esb-definition-response
             :currentProtocol="request.protocol"
             :request="request"
@@ -95,12 +97,14 @@
             :result="request.requestResult"
             v-xpack
             v-if="showXpackCompnent"
+            v-loading="loading"
           />
         </div>
         <div v-else>
           <el-tabs v-model="request.activeName" closable class="ms-tabs" v-if="request.requestResult && request.requestResult.length > 1">
             <el-tab-pane v-for="(item,i) in request.requestResult" :label="'循环'+(i+1)" :key="i" style="margin-bottom: 5px">
               <api-response-component
+                v-loading="loading"
                 :currentProtocol="request.protocol"
                 :apiActive="true"
                 :result="item"
@@ -108,6 +112,7 @@
             </el-tab-pane>
           </el-tabs>
           <api-response-component
+            v-loading="loading"
             :currentProtocol="request.protocol"
             :apiActive="true"
             :result="request.requestResult[0]"
@@ -180,9 +185,11 @@ export default {
       environment: {},
       result: {},
       apiActive: false,
+      runLoading: false
     }
   },
   created() {
+    this.runLoading = false;
     // 历史数据兼容
     if (!this.request.requestResult) {
       this.request.requestResult = [{responseResult: {}}];
@@ -421,6 +428,7 @@ export default {
         }
       }
       this.request.active = true;
+      this.runLoading = true;
       this.loading = true;
       this.runData = [];
       this.runData.projectId = this.request.projectId;
@@ -437,21 +445,31 @@ export default {
       /*触发执行操作*/
       this.reportId = getUUID();
     },
+    stop() {
+      let url = "/api/automation/stop/" + this.reportId;
+      this.$get(url, () => {
+        this.runLoading = false;
+        this.loading = false;
+        this.$success(this.$t('report.test_stop_success'));
+      });
+    },
     errorRefresh() {
       this.loading = false;
+      this.runLoading = false;
     },
     runRefresh(data) {
       this.request.requestResult = [data];
       this.request.result = undefined;
       this.loading = false;
+      this.runLoading = false;
       this.$emit('refReload', this.request, this.node);
     },
-    reload() {
-      this.loading = true
-      this.$nextTick(() => {
-        this.loading = false
-      })
-    },
+    // reload() {
+    //   this.loading = true
+    //   this.$nextTick(() => {
+    //     this.loading = false
+    //   })
+    // },
     getProjectName(id) {
       if (this.projectId !== id) {
         const project = this.projectList.find(p => p.id === id);

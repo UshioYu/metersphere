@@ -22,9 +22,10 @@
       <el-container v-if="!result.loading">
         <el-main>
           <div v-for="(item,index) in apiCaseList" :key="item.id ? item.id : item.uuid">
-            <api-case-item v-loading="singleLoading && singleRunId === item.id || batchLoadingIds.indexOf(item.id) > -1"
+            <api-case-item
                            @refresh="refresh"
                            @singleRun="singleRun"
+                           @stop="stop"
                            @refreshModule="refreshModule"
                            @copyCase="copyCase"
                            @showExecResult="showExecResult"
@@ -250,6 +251,8 @@ export default {
       let obj = {envId: this.environment, show: true};
       this.batchEdit(obj);
       this.runResult = {testId: getUUID()};
+      this.$refs.apiCaseItem.loading = false;
+      this.$refs.apiCaseItem.runLoading = false;
       this.$success(this.$t('organization.integration.successful_operation'));
       this.$emit("refresh");
     },
@@ -257,6 +260,8 @@ export default {
       this.batchLoadingIds = [];
       this.singleLoading = false;
       this.singleRunId = "";
+      this.$refs.apiCaseItem.loading = false;
+      this.$refs.apiCaseItem.runLoading = false;
       this.$emit("refresh");
     },
     refresh() {
@@ -403,6 +408,16 @@ export default {
       /*触发执行操作*/
       this.reportId = getUUID().substring(0, 8);
       this.$emit("refresh", row.id);
+    },
+
+    stop(callback) {
+      let url = "/api/automation/stop/" + this.reportId;
+      this.$get(url, () => {
+        if (callback) {
+          callback();
+        }
+        this.$success(this.$t('report.test_stop_success'));
+      });
     },
 
     batchRun() {

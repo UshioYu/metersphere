@@ -1,5 +1,5 @@
 <template>
-  <el-card v-loading="result.loading" style="margin-top: 5px" @click.native="selectTestCase(apiCase,$event)">
+  <el-card style="margin-top: 5px" @click.native="selectTestCase(apiCase,$event)">
     <div @click="active(apiCase)" v-if="type!=='detail'">
       <el-row>
         <el-col :span="3">
@@ -64,7 +64,9 @@
         <el-col :span="3">
           <span @click.stop>
             <ms-tip-button @click="singleRun(apiCase)" :tip="$t('api_test.run')" icon="el-icon-video-play"
-                           class="run-button" size="mini" :disabled="!apiCase.id" circle/>
+                           class="run-button" size="mini" :disabled="!apiCase.id" circle v-if="!runLoading"/>
+            <ms-tip-button @click.once="stop(apiCase)" :tip="'STOP'" type="danger" icon="el-icon-close"
+                           size="mini" :disabled="!apiCase.id" circle v-else/>
             <ms-tip-button @click="copyCase(apiCase)" :tip="$t('commons.copy')" icon="el-icon-document-copy"
                            size="mini" :disabled="!apiCase.id || isCaseEdit" circle/>
             <ms-tip-button @click="deleteCase(index,apiCase)" :tip="$t('commons.delete')" icon="el-icon-delete"
@@ -108,10 +110,10 @@
         <!-- HTTP 请求返回数据 -->
         <p class="tip">{{ $t('api_test.definition.request.res_param') }}</p>
         <div v-if="showXpackCompnent&&api.method==='ESB'">
-          <esb-definition-response v-xpack v-if="showXpackCompnent" :currentProtocol="apiCase.request.protocol" :request="apiCase.request" :is-api-component="false" :show-options-button="false" :show-header="true" :api-item="apiCase"/>
+          <esb-definition-response v-loading="loading"  v-xpack v-if="showXpackCompnent" :currentProtocol="apiCase.request.protocol" :request="apiCase.request" :is-api-component="false" :show-options-button="false" :show-header="true" :api-item="apiCase"/>
         </div>
         <div v-else>
-          <api-response-component :currentProtocol="apiCase.request.protocol" :api-item="apiCase" :result="runResult"/>
+          <api-response-component :currentProtocol="apiCase.request.protocol" :api-item="apiCase" :result="runResult" v-loading="loading" />
         </div>
 
         <ms-jmx-step :request="apiCase.request" :response="apiCase.responseData"/>
@@ -197,6 +199,8 @@ export default {
         {name: this.$t('test_track.case.batch_edit_case'), handleClick: this.handleEditBatch}
       ],
       methodColorMap: new Map(API_METHOD_COLOUR),
+      runLoading: false,
+      loading: false
     }
   },
   props: {
@@ -269,9 +273,21 @@ export default {
       }
       data.message = true;
       data.request.useEnvironment = this.environment;
+      this.loading = true;
+      this.runLoading = true;
       this.saveTestCase(data);
       this.$emit('singleRun', data);
     },
+    stop() {
+      this.$emit('stop', () => {
+        this.refreshRunLoading();
+      });
+    },
+    refreshRunLoading() {
+      this.loading = false;
+      this.runLoading = false;
+    },
+
     copyCase(data) {
       if (data && data.request) {
         let uuid = getUUID();
